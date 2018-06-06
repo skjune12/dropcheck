@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -154,7 +153,7 @@ func Usage() {
 
 var (
 	cidr   = flag.String("cidr", "", "network/subnet")
-	vlanId = flag.Int("vlan", 0, "vlan-id")
+	vlanId = flag.Int("vlan", 0, "vlan-id (Currently no need to specify any number.)")
 )
 
 func init() {
@@ -171,21 +170,24 @@ func init() {
 		cidr = &input
 	}
 
-	if *vlanId == 0 {
-		fmt.Printf("Enter vlan-id: ")
+	// NOTE: temporary comment out since we don't use vlanId currently.
+	/*
+		if *vlanId == 0 {
+			fmt.Printf("Enter vlan-id: ")
 
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatal(err)
-		}
-		input = strings.TrimSuffix(input, "\n")
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				log.Fatal(err)
+			}
+			input = strings.TrimSuffix(input, "\n")
 
-		tmp, err := strconv.Atoi(input)
-		if err != nil {
-			log.Fatal(err)
+			tmp, err := strconv.Atoi(input)
+			if err != nil {
+				log.Fatal(err)
+			}
+			vlanId = &tmp
 		}
-		vlanId = &tmp
-	}
+	*/
 }
 
 type CheckItems struct {
@@ -241,6 +243,7 @@ func main() {
 	PrintStep(1)
 	fmt.Printf("Send ICMP Packet to the gateway addr (destination: %s)\n", gwAddr.String())
 	Ping(gwAddr)
+	time.Sleep(1000 * time.Millisecond)
 
 	// If IPv6, ping to the link local address
 	// TODO: Specify Source Interface
@@ -256,11 +259,13 @@ func main() {
 	PrintStep(2)
 	fmt.Printf("Send ICMP Packet to the Internet (destination: %s)\n", item.target.String())
 	Ping(item.target)
+	time.Sleep(1000 * time.Millisecond)
 
 	// 3. Query DNS
 	PrintStep(3)
 	fmt.Printf("Query DNS record of 'www.wide.ad.jp'\n")
 	DNSLookup(item.version, "www.wide.ad.jp")
+	time.Sleep(1000 * time.Millisecond)
 
 	// 4. Open Website
 	PrintStep(4)
