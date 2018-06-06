@@ -28,6 +28,26 @@ func IsIPv6(str string) bool {
 	return ip != nil && strings.Contains(str, ":")
 }
 
+func GetLinkLocalAddr(name string) string {
+	var linkLocalAddr string
+	dev, err := net.InterfaceByName(name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	addrs, err := dev.Addrs()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, addr := range addrs {
+		if strings.Contains(addr.String(), "fe80:") {
+			linkLocalAddr = addr.String()
+		}
+	}
+
+	return linkLocalAddr
+}
+
 func PrintPASS() {
 	green := color.New(color.FgGreen)
 	boldGreen := green.Add(color.Bold)
@@ -58,6 +78,10 @@ func Ping(ip net.IP) {
 	}
 
 	pinger.Count = 10
+
+	// TODO: set host ip addr
+	// pinger.source = GetLinkLocalAddr(*devname)
+
 	pinger.Interval = time.Millisecond * 100
 	pinger.Timeout = time.Second * 5
 	pinger.Run()
@@ -127,8 +151,9 @@ func Usage() {
 }
 
 var (
-	cidr   = flag.String("cidr", "192.168.0.0/16", "network/subnet")
-	vlanId = flag.Int("vlan", 1, "vlan-id")
+	cidr    = flag.String("cidr", "192.168.0.0/16", "network/subnet")
+	vlanId  = flag.Int("vlan", 1, "vlan-id")
+	devname = flag.String("interface", "en7", "device name")
 )
 
 func init() {
@@ -160,7 +185,7 @@ func main() {
 			"ip",
 			*vlanId,
 			net.ParseIP("8.8.8.8"),
-			"http://nicovideo.jp"}
+			"https://ipv4.google.com"}
 
 	case "IPv6":
 		ip, _, err := net.ParseCIDR(*cidr)
@@ -190,6 +215,8 @@ func main() {
 	Ping(gwAddr)
 
 	// If IPv6, ping to the link local address
+	// TODO: Specify Source Interface
+
 	if IsIPv6(item.ip.String()) {
 		linkLocalGWAddr := CalculateLinkLocalAddr(*vlanId)
 		PrintStep(1)
