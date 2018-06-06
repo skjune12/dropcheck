@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -151,13 +153,39 @@ func Usage() {
 }
 
 var (
-	cidr    = flag.String("cidr", "192.168.0.0/16", "network/subnet")
-	vlanId  = flag.Int("vlan", 1, "vlan-id")
-	devname = flag.String("interface", "en7", "device name")
+	cidr   = flag.String("cidr", "", "network/subnet")
+	vlanId = flag.Int("vlan", 0, "vlan-id")
 )
 
 func init() {
 	flag.Parse()
+	reader := bufio.NewReader(os.Stdin)
+	if *cidr == "" {
+		fmt.Printf("Enter CIDR: ")
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatal(err)
+		}
+		input = strings.TrimSuffix(input, "\n")
+		cidr = &input
+	}
+
+	if *vlanId == 0 {
+		fmt.Printf("Enter vlan-id: ")
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatal(err)
+		}
+		input = strings.TrimSuffix(input, "\n")
+
+		tmp, err := strconv.Atoi(input)
+		if err != nil {
+			log.Fatal(err)
+		}
+		vlanId = &tmp
+	}
 }
 
 type CheckItems struct {
@@ -202,7 +230,7 @@ func main() {
 			"https://ipv6.google.com"}
 
 	default:
-		Usage()
+		fmt.Println("Invalid CIDR Format: xxx.xxx.xxx.xxx/netmask")
 		os.Exit(1)
 	}
 
@@ -217,12 +245,12 @@ func main() {
 	// If IPv6, ping to the link local address
 	// TODO: Specify Source Interface
 
-	if IsIPv6(item.ip.String()) {
-		linkLocalGWAddr := CalculateLinkLocalAddr(*vlanId)
-		PrintStep(1)
-		fmt.Printf("Send ICMP Packet to the link-local gateway addr (destination: %s)\n", linkLocalGWAddr.String())
-		Ping(linkLocalGWAddr)
-	}
+	// if IsIPv6(item.ip.String()) {
+	// 	linkLocalGWAddr := CalculateLinkLocalAddr(*vlanId)
+	// 	PrintStep(1)
+	// 	fmt.Printf("Send ICMP Packet to the link-local gateway addr (destination: %s)\n", linkLocalGWAddr.String())
+	// 	Ping(linkLocalGWAddr)
+	// }
 
 	// 2. ping to the Internet
 	PrintStep(2)
