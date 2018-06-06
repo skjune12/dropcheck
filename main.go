@@ -67,9 +67,10 @@ func PrintWARN() {
 	boldRed.Printf("> WARN\t")
 }
 
-func PrintStep(i int) {
+func PrintStep() {
+	stepCount++
 	bold := color.New(color.Bold)
-	bold.Printf("[Step%d]\t", i)
+	bold.Printf("[Step%d]\t", stepCount)
 }
 
 func Ping(ip net.IP) {
@@ -147,13 +148,52 @@ func DNSLookup(version, addr string) {
 	}
 }
 
+func IsContainNet(cidr string) (bool, string, net.IP) {
+	var devName string
+	var devAddr net.IP
+
+	_, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		log.Fatal("net.ParseCIDR(cidr)", err)
+	}
+
+	devices, err := net.Interfaces()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, device := range devices {
+		addrs, err := device.Addrs()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, addr := range addrs {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if ipnet.Contains(ip) {
+				devName = device.Name
+				devAddr = ip
+				return true, devName, devAddr
+			}
+		}
+	}
+
+	// Not Found
+	return false, "", nil
+}
+
 func Usage() {
 	fmt.Printf("Usage: %s TargetIPAddr\n", os.Args[0])
 }
 
 var (
-	cidr   = flag.String("cidr", "", "network/subnet")
-	vlanId = flag.Int("vlan", 0, "vlan-id (Currently no need to specify any number.)")
+	cidr          = flag.String("cidr", "", "network/subnet")
+	vlanId        = flag.Int("vlan", 0, "vlan-id (Currently no need to specify any number.)")
+	stepCount int = 0
 )
 
 func init() {
@@ -238,12 +278,24 @@ func main() {
 
 	fmt.Println(banner)
 
-	// 1. ping to the gateway addr
+	// Check
+	PrintStep()
+	fmt.Printf("Check if you are connected to the specified network.\n")
+	bool, devName, devAddr := IsContainNet(*cidr)
+	if bool != true {
+		PrintFAIL()
+		fmt.Printf("You are not connected to the specified network!\n")
+		os.Exit(1)
+	} else {
+		PrintPASS()
+		fmt.Printf("devName: %s, addr: %v\n", devName, devAddr)
+	}
+
+	// ping to the gateway addr
 	gwAddr := CalculateGWAddr(*cidr)
-	PrintStep(1)
+	PrintStep()
 	fmt.Printf("Send ICMP Packet to the gateway addr (destination: %s)\n", gwAddr.String())
 	Ping(gwAddr)
-	time.Sleep(1000 * time.Millisecond)
 
 	// If IPv6, ping to the link local address
 	// TODO: Specify Source Interface
@@ -255,20 +307,19 @@ func main() {
 	// 	Ping(linkLocalGWAddr)
 	// }
 
-	// 2. ping to the Internet
-	PrintStep(2)
+	// ping to the Internet
+	PrintStep()
 	fmt.Printf("Send ICMP Packet to the Internet (destination: %s)\n", item.target.String())
 	Ping(item.target)
-	time.Sleep(1000 * time.Millisecond)
 
-	// 3. Query DNS
-	PrintStep(3)
+	// Query DNS
+	PrintStep()
 	fmt.Printf("Query DNS record of 'www.wide.ad.jp'\n")
 	DNSLookup(item.version, "www.wide.ad.jp")
 	time.Sleep(1000 * time.Millisecond)
 
-	// 4. Open Website
-	PrintStep(4)
+	// Open Website
+	PrintStep()
 	fmt.Printf("Web Browsing (%s)\n", item.web)
 	PrintWARN()
 	fmt.Printf("Please check your browser.\n")
