@@ -114,13 +114,13 @@ func CheckIPVersion(str string) string {
 }
 
 func CalculateGWAddr(cidr string) net.IP {
-	ip, _, err := net.ParseCIDR(cidr)
+	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	inc(ip)
-	return ip
+	inc(ipNet.IP)
+	return ipNet.IP
 }
 
 func CalculateLinkLocalAddr(vlanId int) net.IP {
