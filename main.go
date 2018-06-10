@@ -8,11 +8,8 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/fatih/color"
 	"github.com/skratchdot/open-golang/open"
-	ping "github.com/sparrc/go-ping"
 )
 
 const banner string = `
@@ -24,153 +21,17 @@ const banner string = `
      \/              |__|        \/     \/     \/     \/     \/
 `
 
-func IsIPv6(str string) bool {
-	ip := net.ParseIP(str)
-	return ip != nil && strings.Contains(str, ":")
-}
-
-func PrintPASS(text string) {
-	green := color.New(color.FgGreen)
-	boldGreen := green.Add(color.Bold)
-	boldGreen.Printf("> PASS\t")
-	fmt.Printf("%s\n", text)
-}
-
-func PrintFAIL(text string) {
-	red := color.New(color.FgRed)
-	boldRed := red.Add(color.Bold)
-	boldRed.Printf("> FAIL\t")
-	fmt.Printf("%s\n", text)
-
-}
-
-func PrintWARN(text string) {
-	red := color.New(color.FgYellow)
-	boldRed := red.Add(color.Bold)
-	boldRed.Printf("> WARN\t")
-	fmt.Printf("%s\n", text)
-}
-
-func PrintStep(text string) {
-	stepCount++
-	bold := color.New(color.Bold)
-	bold.Printf("[Step%d]\t", stepCount)
-	fmt.Printf("%s\n", text)
-}
-
-func Ping(ip net.IP) {
-	pinger, err := ping.NewPinger(ip.String())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pinger.Count = 10
-
-	pinger.Interval = time.Millisecond * 100
-	pinger.Timeout = time.Second * 5
-	pinger.Run()
-
-	stats := pinger.Statistics()
-
-	statMsg := fmt.Sprintf("PacketLoss: %.3f%%", stats.PacketLoss)
-
-	if stats.PacketLoss <= 5 {
-		PrintPASS(statMsg)
-	} else {
-		PrintFAIL(statMsg)
-	}
-}
-
-func CheckIPVersion(str string) string {
-	ip := net.ParseIP(str)
-
-	if ip != nil {
-		if strings.Contains(str, ".") {
-			return "IPv4"
-		} else if strings.Contains(str, ":") {
-			return "IPv6"
-		}
-	}
-
-	// if not match
-	return "None"
-}
-
-func CalculateGWAddr(cidr string) net.IP {
-	_, ipNet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	inc(ipNet.IP)
-	return ipNet.IP
-}
-
-func inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
-}
-
-func DNSLookup(version, addr string) {
-	record, err := net.ResolveIPAddr(version, addr)
-	if err != nil {
-		errMsg := fmt.Sprintf("%s\n", err)
-		PrintFAIL(errMsg)
-	} else {
-		PrintPASS(record.String())
-	}
-}
-
-func IsContainNet(cidr string) (bool, string, net.IP) {
-	var devName string
-	var devAddr net.IP
-
-	_, ipnet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		log.Fatal("net.ParseCIDR(cidr)", err)
-	}
-
-	devices, err := net.Interfaces()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, device := range devices {
-		addrs, err := device.Addrs()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, addr := range addrs {
-			ip, _, err := net.ParseCIDR(addr.String())
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if ipnet.Contains(ip) {
-				devName = device.Name
-				devAddr = ip
-				return true, devName, devAddr
-			}
-		}
-	}
-
-	// Not Found
-	return false, "", nil
-}
-
-func Usage() {
-	fmt.Printf("Usage: %s TargetIPAddr\n", os.Args[0])
-}
-
 var (
 	cidr          = flag.String("cidr", "", "network/subnet")
 	stepCount int = 0
 )
+
+type CheckItems struct {
+	ip      net.IP
+	version string
+	target  net.IP
+	web     string
+}
 
 func init() {
 	flag.Parse()
@@ -185,13 +46,6 @@ func init() {
 		input = strings.TrimSuffix(input, "\n")
 		cidr = &input
 	}
-}
-
-type CheckItems struct {
-	ip      net.IP
-	version string
-	target  net.IP
-	web     string
 }
 
 func main() {
@@ -234,7 +88,7 @@ func main() {
 
 	// Check
 	PrintStep("Check if you are connected to the specified network.")
-	bool, devName, devAddr := IsContainNet(*cidr)
+	bool, devName, devAddr := IsContainNetwork(*cidr)
 	if bool != true {
 		PrintFAIL("You are not connected to the specified network!")
 		os.Exit(1)
