@@ -316,7 +316,6 @@ func main() {
 	PrintStep()
 	fmt.Printf("Query DNS record of 'www.wide.ad.jp'\n")
 	DNSLookup(item.version, "www.wide.ad.jp")
-	time.Sleep(1000 * time.Millisecond)
 
 	// Open Website
 	PrintStep()
