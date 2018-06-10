@@ -49,28 +49,33 @@ func GetLinkLocalAddr(name string) string {
 	return linkLocalAddr
 }
 
-func PrintPASS() {
+func PrintPASS(text string) {
 	green := color.New(color.FgGreen)
 	boldGreen := green.Add(color.Bold)
 	boldGreen.Printf("> PASS\t")
+	fmt.Printf("%s\n", text)
 }
 
-func PrintFAIL() {
+func PrintFAIL(text string) {
 	red := color.New(color.FgRed)
 	boldRed := red.Add(color.Bold)
 	boldRed.Printf("> FAIL\t")
+	fmt.Printf("%s\n", text)
+
 }
 
-func PrintWARN() {
+func PrintWARN(text string) {
 	red := color.New(color.FgYellow)
 	boldRed := red.Add(color.Bold)
 	boldRed.Printf("> WARN\t")
+	fmt.Printf("%s\n", text)
 }
 
-func PrintStep() {
+func PrintStep(text string) {
 	stepCount++
 	bold := color.New(color.Bold)
 	bold.Printf("[Step%d]\t", stepCount)
+	fmt.Printf("%s\n", text)
 }
 
 func Ping(ip net.IP) {
@@ -90,12 +95,13 @@ func Ping(ip net.IP) {
 
 	stats := pinger.Statistics()
 
+	statMsg := fmt.Sprintf("PacketLoss: %.3f%%", stats.PacketLoss)
+
 	if stats.PacketLoss <= 5 {
-		PrintPASS()
+		PrintPASS(statMsg)
 	} else {
-		PrintFAIL()
+		PrintFAIL(statMsg)
 	}
-	fmt.Printf("PacketLoss: %.3f%%\n", stats.PacketLoss)
 }
 
 func CheckIPVersion(str string) string {
@@ -123,11 +129,6 @@ func CalculateGWAddr(cidr string) net.IP {
 	return ipNet.IP
 }
 
-func CalculateLinkLocalAddr(vlanId int) net.IP {
-	addr := fmt.Sprintf("fe80::%d:1", vlanId)
-	return net.ParseIP(addr)
-}
-
 func inc(ip net.IP) {
 	for j := len(ip) - 1; j >= 0; j-- {
 		ip[j]++
@@ -140,11 +141,10 @@ func inc(ip net.IP) {
 func DNSLookup(version, addr string) {
 	record, err := net.ResolveIPAddr(version, addr)
 	if err != nil {
-		PrintFAIL()
-		fmt.Printf("%s\n", err)
+		errMsg := fmt.Sprintf("%s\n", err)
+		PrintFAIL(errMsg)
 	} else {
-		PrintPASS()
-		fmt.Println(record.String())
+		PrintPASS(record.String())
 	}
 }
 
@@ -192,7 +192,6 @@ func Usage() {
 
 var (
 	cidr          = flag.String("cidr", "", "network/subnet")
-	vlanId        = flag.Int("vlan", 0, "vlan-id (Currently no need to specify any number.)")
 	stepCount int = 0
 )
 
@@ -209,31 +208,11 @@ func init() {
 		input = strings.TrimSuffix(input, "\n")
 		cidr = &input
 	}
-
-	// NOTE: temporary comment out since we don't use vlanId currently.
-	/*
-		if *vlanId == 0 {
-			fmt.Printf("Enter vlan-id: ")
-
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				log.Fatal(err)
-			}
-			input = strings.TrimSuffix(input, "\n")
-
-			tmp, err := strconv.Atoi(input)
-			if err != nil {
-				log.Fatal(err)
-			}
-			vlanId = &tmp
-		}
-	*/
 }
 
 type CheckItems struct {
 	ip      net.IP
 	version string
-	vlanId  int
 	target  net.IP
 	web     string
 }
@@ -253,7 +232,6 @@ func main() {
 		item = CheckItems{
 			ip,
 			"ip",
-			*vlanId,
 			net.ParseIP("8.8.8.8"),
 			"https://ipv4.google.com"}
 
@@ -267,7 +245,6 @@ func main() {
 		item = CheckItems{
 			ip,
 			"ip6",
-			*vlanId,
 			net.ParseIP("2001:4860:4860::8888"),
 			"https://ipv6.google.com"}
 
@@ -279,49 +256,35 @@ func main() {
 	fmt.Println(banner)
 
 	// Check
-	PrintStep()
-	fmt.Printf("Check if you are connected to the specified network.\n")
+	PrintStep("Check if you are connected to the specified network.")
 	bool, devName, devAddr := IsContainNet(*cidr)
 	if bool != true {
-		PrintFAIL()
-		fmt.Printf("You are not connected to the specified network!\n")
+		PrintFAIL("You are not connected to the specified network!")
 		os.Exit(1)
 	} else {
-		PrintPASS()
-		fmt.Printf("devName: %s, addr: %v\n", devName, devAddr)
+		passMsg := fmt.Sprintf("devName: %s, addr: %v", devName, devAddr)
+		PrintPASS(passMsg)
 	}
 
 	// ping to the gateway addr
 	gwAddr := CalculateGWAddr(*cidr)
-	PrintStep()
-	fmt.Printf("Send ICMP Packet to the gateway addr (destination: %s)\n", gwAddr.String())
+	text := fmt.Sprintf("Send ICMP Packet to the gateway addr (destination: %s)", gwAddr.String())
+	PrintStep(text)
 	Ping(gwAddr)
 
-	// If IPv6, ping to the link local address
-	// TODO: Specify Source Interface
-
-	// if IsIPv6(item.ip.String()) {
-	// 	linkLocalGWAddr := CalculateLinkLocalAddr(*vlanId)
-	// 	PrintStep(1)
-	// 	fmt.Printf("Send ICMP Packet to the link-local gateway addr (destination: %s)\n", linkLocalGWAddr.String())
-	// 	Ping(linkLocalGWAddr)
-	// }
-
 	// ping to the Internet
-	PrintStep()
-	fmt.Printf("Send ICMP Packet to the Internet (destination: %s)\n", item.target.String())
+	text = fmt.Sprintf("Send ICMP Packet to the Internet (destination: %s)", item.target.String())
+	PrintStep(text)
 	Ping(item.target)
 
 	// Query DNS
-	PrintStep()
-	fmt.Printf("Query DNS record of 'www.wide.ad.jp'\n")
+	PrintStep("Query DNS record of 'www.wide.ad.jp'")
 	DNSLookup(item.version, "www.wide.ad.jp")
 
 	// Open Website
-	PrintStep()
-	fmt.Printf("Web Browsing (%s)\n", item.web)
-	PrintWARN()
-	fmt.Printf("Please check your browser.\n")
+	text = fmt.Sprintf("Web Browsing (%s)", item.web)
+	PrintStep(text)
+	PrintWARN("Please check your browser.")
 	open.Run(item.web)
 
 	// Show Result
