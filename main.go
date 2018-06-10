@@ -29,26 +29,6 @@ func IsIPv6(str string) bool {
 	return ip != nil && strings.Contains(str, ":")
 }
 
-func GetLinkLocalAddr(name string) string {
-	var linkLocalAddr string
-	dev, err := net.InterfaceByName(name)
-	if err != nil {
-		log.Fatal(err)
-	}
-	addrs, err := dev.Addrs()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, addr := range addrs {
-		if strings.Contains(addr.String(), "fe80:") {
-			linkLocalAddr = addr.String()
-		}
-	}
-
-	return linkLocalAddr
-}
-
 func PrintPASS(text string) {
 	green := color.New(color.FgGreen)
 	boldGreen := green.Add(color.Bold)
@@ -85,9 +65,6 @@ func Ping(ip net.IP) {
 	}
 
 	pinger.Count = 10
-
-	// TODO: set host ip addr
-	// pinger.source = GetLinkLocalAddr(*devname)
 
 	pinger.Interval = time.Millisecond * 100
 	pinger.Timeout = time.Second * 5
